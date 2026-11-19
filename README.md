@@ -59,17 +59,34 @@ calificaciones.
 
 ### Modelo
 
+Los valores siguientes están leídos del bloque `MODEL` embebido en
+`app/index.html`; no son una estimación.
+
+- **Versión**: `synthetic-42-v2` (simulación con semilla 42), entrenado con
+  `scikit-learn 1.8.0`.
 - **Objetivo**: clasificar si la duración total simulada del pedido supera la
   promesa de entrega.
-- **Entradas**: número de referencias distintas, piezas totales, líneas de
-  *picking*, minutos de preparación y holgura de la ventana.
+- **Entradas** (las cinco que declara el artefacto): `Referencias`,
+  `Carga inicial`, `Distancia km`, `Promesa min`, `Hora de creación`.
 - **Preprocesamiento**: `StandardScaler` ajustado sobre el conjunto de
-  entrenamiento.
-- **Modelo**: `MLPClassifier` comparado con `LogisticRegression` como referencia.
-- **Validación**: bloques temporales sintéticos, para no evaluar con datos
-  posteriores al periodo de ajuste.
-- **Inferencia**: los pesos quedan embebidos en la página; el navegador evalúa la
-  red sin llamar a ningún servicio.
+  entrenamiento; su media y su escala (cinco valores cada una) viajan embebidas
+  junto a los pesos.
+- **Partición**: 8 400 registros de entrenamiento, 1 800 de validación y 1 800 de
+  prueba (12 000 en total), con prevalencia de la clase positiva del 22.33 %.
+- **Modelos comparados**: `LogisticRegression` y una MLP `24/12`.
+
+| Modelo | AUC | AP | Brier |
+|---|---|---|---|
+| Logística | 0.9856 | 0.9527 | 0.0402 |
+| MLP 24/12 | 0.9849 | 0.9519 | 0.0411 |
+
+**La logística queda ligeramente por encima de la MLP en las tres métricas.** El
+repositorio no afirma superioridad de la red: la interfaz evalúa la MLP porque es
+la que expone pesos interpretables, no porque gane. Las diferencias son
+marginales y provienen de un generador sintético.
+
+- **Inferencia**: los pesos y el escalado quedan embebidos en la página; el
+  navegador evalúa la red sin llamar a ningún servicio.
 
 ### Interfaz
 
@@ -107,9 +124,11 @@ quiera abrir un prototipo estático.
 
 ## Verificación
 
-La demo se verificó en un navegador real con instrumentación automatizada:
+La demo se verificó en un navegador real con instrumentación automatizada. Hay
+dos cortes de evidencia y conviene no mezclarlos:
 
-- **51 comprobaciones** de estructura, contenido, semántica y *layout* en
+- **32 comprobaciones** históricas de una revisión anterior del paquete.
+- **51 comprobaciones** actuales de estructura, contenido, semántica y *layout* en
   1440 / 1024 / 390 px sin desbordamiento global.
 - **8 comprobaciones** del recorrido de entrega: estados, tiempos, calificación y
   reinicio.
@@ -119,6 +138,33 @@ La demo se verificó en un navegador real con instrumentación automatizada:
 
 Los criterios completos están en [`docs/ACEPTACION.md`](docs/ACEPTACION.md).
 
+## Reproducción del modelo: pendiente
+
+**El pipeline Python de generación, entrenamiento y exportación no está en este
+repositorio.** Lo que se publica es el artefacto ya construido: datos sintéticos,
+pesos, escalado y métricas embebidos en `app/index.html`.
+
+Para reproducir el modelo haría falta, como mínimo:
+
+1. Generador de la operación sintética con semilla 42 (`version: synthetic-42-v2`).
+2. Cálculo de las cinco variables (`Referencias`, `Carga inicial`, `Distancia km`,
+   `Promesa min`, `Hora de creación`) y del objetivo «supera la promesa».
+3. Partición 8 400 / 1 800 / 1 800 y ajuste del escalado solo con entrenamiento.
+4. Entrenamiento de la logística y de la MLP 24/12, con semilla declarada.
+5. Selección del umbral con validación y evaluación final en prueba.
+6. Exportación de media, escala y pesos en el formato que consume la página.
+7. Comprobación de paridad entre la inferencia Python y la de JavaScript.
+
+Ninguna de esas piezas se sustituye por un generador nuevo: mientras no se
+recuperen las originales, este repositorio **no** se declara reproducible a nivel
+de modelo. Ver [`docs/REPRODUCCION.md`](docs/REPRODUCCION.md).
+
+## Verificación del artefacto
+
+`app/index.html` mide **13 416 449 bytes** y su SHA-256 es
+`CDC6D7C930ECEA96F9A61CCFBCDC18FA3BC96B9968E084D5B24A4DBE01D00AB5`. La
+integración continua comprueba que el archivo exista y que no se publiquen
+credenciales.
 ## Límites
 
 - Operación simulada: ventas = valor de artículos surtidos, no cobros, ingresos,
@@ -142,3 +188,4 @@ las fuentes citadas.
 
 Convenciones en [`CONTRIBUTING.md`](CONTRIBUTING.md). Para reportar un problema de
 seguridad, usa los avisos privados de [`SECURITY.md`](SECURITY.md).
+
